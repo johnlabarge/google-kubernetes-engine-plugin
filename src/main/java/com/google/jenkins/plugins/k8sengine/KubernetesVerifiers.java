@@ -234,3 +234,121 @@ public class KubernetesVerifiers {
     return new VerificationResult(sw.toString(), false, object);
   }
 }
+/*
+  public static class ServiceVerifier implements Verifier {
+
+    public VerificationResult verify(Kube kube, Manifests.ManifestObject object) {
+      String serviceName = object.getName();
+      return verify(kube, object.getName());
+    }
+
+    public VerificationResult verify(Kube kube, String serviceName) {
+
+      StringBuilder log = new StringBuilder(0);
+      Object serviceJson = null;
+      Object endpointJson = null;
+      List<Object> matchingPodsJson = null;
+      try {
+        serviceJson = kube.query(Kube.get("service", serviceName));
+        endpointJson = kube.query(Kube.get("endpoints", serviceName));
+      } catch (Exception e) {
+        return errorResult(e);
+      }
+      Map<String, String> labelsMap = new HashMap<String, String>();
+      Map<String, Object> serviceSelectorMap = JsonPath.read(serviceJson, "spec.selectors");
+      serviceSelectorMap.forEach((k, v) -> labelsMap.put(k, v.toString()));
+
+      try {
+        matchingPodsJson = kube.query(Kube.withLabels("pods", labelsMap));
+      } catch (Exception e) {
+        return errorResult(e);
+      }
+
+      int requiredEndpoints = matchingPodsJson.size();
+      // Note that the subsets field is an array, but it's not clear that there would ever be
+      // multiple subsets
+      List<Map<String, Object>> addresses = JsonPath.read(endpointJson, "subsets.addresses");
+      Set<String> podNames =
+          addresses.stream().map((m) -> m.get("podName").toString()).collect(Collectors.toSet());
+      boolean endpointsForAllMatchingPods =
+          matchingPodsJson
+              .stream()
+              .map(
+                  o -> {
+                    String podName = JsonPath.read(o, "metadata.name");
+                    return podNames.contains(podName);
+                  })
+              .reduce(true, (acc, contained) -> acc && contained);
+
+      log.append("Endpoints status for service %s, configured addresses : \n");
+      log.append(Configuration.defaultConfiguration().jsonProvider().toJson(addresses));
+      log.append("\n");
+      return new VerificationResult(log.toString(), endpointsForAllMatchingPods);
+    }
+  }
+
+  public static class IngressVerifier implements Verifier {
+
+    public VerificationResult verify(Kube kube, Manifests.ManifestObject object) {
+      Object ingJson = null;
+      try {
+        ingJson = kube.query(Kube.get(object.getKind(), object.getName()));
+      } catch (Exception e) {
+        return errorResult(e);
+      }
+
+      List<Object> rules = JsonPath.read(ingJson, "rules");
+      List<String> backendServicesForIngress = new ArrayList<String>();
+      rules.forEach(
+          (r) -> {
+            backendServicesForIngress.addAll(getBackendServicesForRule(r));
+          });
+
+      ServiceVerifier serviceVerifier = new ServiceVerifier();
+      List<VerificationResult> serviceVerificationResults =
+          backendServicesForIngress
+              .stream()
+              .map((serviceName) -> serviceVerifier.verify(kube, serviceName))
+              .collect(Collectors.toList());
+
+      StringBuilder log = new StringBuilder();
+      serviceVerificationResults.forEach((result) -> log.append(result.toString()));
+
+      boolean resultingStatus =
+          serviceVerificationResults
+              .stream()
+              .map((result) -> result.status)
+              .reduce(true, (acc, status) -> acc && status);
+
+      return new VerificationResult(log.toString(), resultingStatus);
+    }
+
+    private List<String> getBackendServicesForRule(Object rule) {
+      List<Object> httpbackendServices = new ArrayList<Object>();
+      List<Object> httpsBackendServices = new ArrayList<Object>();
+      Object http = JsonPath.read(rule, "http");
+      Object https = JsonPath.read(rule, "https");
+      List<String> httpServices = backendSerivcesForHttp(http);
+      List<String> httpsServices = backendSerivcesForHttp(https);
+      httpServices.addAll(httpsServices);
+      return httpServices;
+    }
+
+    private List<String> backendSerivcesForHttp(Object http) {
+      List<String> services = new ArrayList<String>(0);
+      if (http != null) {
+        List<Object> paths = (List<Object>) JsonPath.read(http, "paths");
+        services =
+            paths
+                .stream()
+                .map((Object o) -> (String) JsonPath.read(o, "backend.service"))
+                .collect(Collectors.toList());
+      }
+      return services;
+    }
+  }
+
+  public static void registerVerifer(Verifier verifier, String apiVersion, String kind) {
+    verifiers.put(apiVersion + "/" + kind, verifier);
+  }
+ */
